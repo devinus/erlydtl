@@ -47,7 +47,7 @@ test_list() ->
         "var", "var_preset", "var_error", "cycle", "custom_tag",
         "custom_tag_error", "custom_call", 
         "include_template", "include_path",
-        "extends_path", "extends_path2" ].
+        "extends_path", "extends_path2", "js"].
 
 setup_compile("for_list_preset") ->
     CompileVars = [{fruit_list, [["apple", "apples"], ["banana", "bananas"], ["coconut", "coconuts"]]}],

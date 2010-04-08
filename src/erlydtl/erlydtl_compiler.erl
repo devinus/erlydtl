@@ -51,7 +51,10 @@
     reader = {file, read_file},
     module = [],
     compiler_options = [verbose, report_errors],
-    force_recompile = false}).
+    force_recompile = false,
+    js_dir = "",
+    js_compile_enabled = false,
+    js_compile_command = undefined}).
 
 -record(ast_info, {
     dependencies = [],
@@ -148,7 +151,10 @@ init_dtl_context(File, Module, Options) ->
         vars = proplists:get_value(vars, Options, Ctx#dtl_context.vars), 
         reader = proplists:get_value(reader, Options, Ctx#dtl_context.reader),
         compiler_options = proplists:get_value(compiler_options, Options, Ctx#dtl_context.compiler_options),
-        force_recompile = proplists:get_value(force_recompile, Options, Ctx#dtl_context.force_recompile)}.
+        force_recompile = proplists:get_value(force_recompile, Options, Ctx#dtl_context.force_recompile),
+        js_dir = proplists:get_value(js_dir, Options, filename:dirname(File)),
+        js_compile_enabled = proplists:get_value(js_compile_enabled, Options, Ctx#dtl_context.js_compile_enabled),
+        js_compile_command = proplists:get_value(js_compile_command, Options, Ctx#dtl_context.js_compile_command)}.
 
 
 is_up_to_date(_, #dtl_context{force_recompile = true}) ->
@@ -383,7 +389,9 @@ body_ast(DjangoParseTree, Context, TreeWalker) ->
             ({'cycle', Names}, TreeWalkerAcc) ->
                 cycle_ast(Names, Context, TreeWalkerAcc);
             ({'cycle_compat', Names}, TreeWalkerAcc) ->
-                cycle_compat_ast(Names, Context, TreeWalkerAcc)
+                cycle_compat_ast(Names, Context, TreeWalkerAcc);
+            ({'js', FileList}, TreeWalkerAcc) ->
+                js_ast(FileList, Context, TreeWalkerAcc)
         end, TreeWalker, DjangoParseTree),   
     {AstList, {Info, TreeWalker3}} = lists:mapfoldl(
         fun({Ast, Info}, {InfoAcc, TreeWalkerAcc}) -> 
@@ -407,7 +415,8 @@ body_ast(DjangoParseTree, Context, TreeWalker) ->
                         PreRenderAst = erl_syntax:function(erl_syntax:atom(Name),
                             [erl_syntax:clause([erl_syntax:variable("Variables")], none, [Ast])]),
                         PreRenderAsts = Info#ast_info.pre_render_asts,
-                        Info1 = Info#ast_info{pre_render_asts = [PreRenderAst | PreRenderAsts]},     
+                        io:format("PresetVars: ~p~n", [PresetVars]),
+                        Info1 = Info#ast_info{pre_render_asts = [PreRenderAst | PreRenderAsts]},
                         {Ast1, {merge_info(Info1, InfoAcc), TreeWalkerAcc#treewalker{counter = Counter + 1}}}
                 end
         end, {#ast_info{}, TreeWalker2}, AstInfoList),
@@ -684,6 +693,18 @@ now_ast(FormatString, _Context, TreeWalker) ->
         erl_syntax:atom(format),
         [erl_syntax:string(UnescapeOuter)]),
         #ast_info{}}, TreeWalker}.
+
+js_ast(FileList, Context, TreeWalker) ->
+    Files = [unescape_string_literal(F) || {string_literal, _, F} <- FileList],
+    FilesAst = erl_syntax:list([erl_syntax:string(L) || L <- Files]),
+    DirAst = erl_syntax:string(Context#dtl_context.js_dir),
+    CmdAst = erl_syntax:string(Context#dtl_context.js_compile_command),
+    EnabledAst = erl_syntax:atom(Context#dtl_context.js_compile_enabled),
+    Ast = erl_syntax:application(
+                erl_syntax:atom(erlydtl_static_compiler),
+                erl_syntax:atom(compile_js),
+                [FilesAst, DirAst, CmdAst, EnabledAst]),
+    {{Ast, #ast_info{}}, TreeWalker}.
 
 unescape_string_literal(String) ->
     unescape_string_literal(string:strip(String, both, 34), [], noslash).

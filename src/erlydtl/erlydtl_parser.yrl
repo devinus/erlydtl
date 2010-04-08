@@ -87,7 +87,7 @@ Nonterminals
     Value
     Variable
     Filter
-    
+
     LoadTag
     LoadNames
     
@@ -95,7 +95,10 @@ Nonterminals
     Args
     
     CallTag
-    CallWithTag.
+    CallWithTag
+
+    JsTag
+    JsFiles.
 
 Terminals
     autoescape_keyword
@@ -135,7 +138,8 @@ Terminals
     pipe
     string_literal
     text
-    with_keyword.
+    with_keyword
+    js_keyword.
 
 Rootsymbol
     Elements.
@@ -159,6 +163,7 @@ Elements -> Elements CommentBlock : '$1' ++ ['$2'].
 Elements -> Elements CustomTag : '$1' ++ ['$2'].
 Elements -> Elements CallTag : '$1' ++ ['$2'].
 Elements -> Elements CallWithTag : '$1' ++ ['$2'].
+Elements -> Elements JsTag : '$1' ++ ['$2'].
 
 ValueBraced -> open_var Value close_var : '$2'.
 
@@ -245,3 +250,7 @@ Args -> Args identifier equal Value : '$1' ++ [{'$2', '$4'}].
 
 CallTag -> open_tag call_keyword identifier close_tag : {call, '$3'}.
 CallWithTag -> open_tag call_keyword identifier with_keyword Value close_tag : {call, '$3', '$5'}.
+
+JsTag -> open_tag js_keyword JsFiles close_tag : {js, '$3'}.
+JsFiles -> string_literal : ['$1'].
+JsFiles -> JsFiles string_literal : '$1' ++ ['$2'].
